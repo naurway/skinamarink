@@ -1,6 +1,6 @@
-package com.example.mixin;
+package com.naurway.skinamarink.mixin;
 
-import com.example.ExampleMod;
+import com.naurway.skinamarink.SkinamarinkMod;
 import net.minecraft.advancements.AdvancementHolder;
 import net.minecraft.advancements.PlayerAdvancements;
 import net.minecraft.server.level.ServerPlayer;
@@ -21,10 +21,10 @@ public abstract class PlayerAdvancementsMixin {
 
         PlayerAdvancements self = (PlayerAdvancements) (Object) this;
         ServerPlayer player = ((PlayerAdvancementsAccessor) self).getPlayer();
-        if (player == null || ExampleMod.activityTracker == null) return;
+        if (player == null || SkinamarinkMod.activityTracker == null) return;
 
         String playerId = player.getUUID().toString();
         String advancementId = advancement.id().toString();
-        ExampleMod.activityTracker.recordAction(playerId, "advancement:" + advancementId);
+        SkinamarinkMod.activityTracker.recordAction(playerId, "advancement:" + advancementId);
     }
 }

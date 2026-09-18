@@ -1,9 +1,9 @@
-package com.example;
+package com.naurway.skinamarink;
 
-import com.example.ai.PlayerActivityTracker;
-import com.example.ai.PlayerLogger;
-import com.example.ai.PlayerMemory;
-import com.example.ai.SkinamarinkAgent;
+import com.naurway.skinamarink.ai.PlayerActivityTracker;
+import com.naurway.skinamarink.ai.PlayerLogger;
+import com.naurway.skinamarink.ai.PlayerMemory;
+import com.naurway.skinamarink.ai.SkinamarinkAgent;
 
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -18,8 +18,8 @@ import java.nio.file.Path;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.minecraft.world.level.block.DoorBlock;
 
-public class ExampleMod implements ModInitializer {
-	public static final String MOD_ID = "modid";
+public class SkinamarinkMod implements ModInitializer {
+	public static final String MOD_ID = "skinamarink";
 
 	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 

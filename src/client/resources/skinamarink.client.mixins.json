@@ -1,11 +1,9 @@
 {
 	"required": true,
-	"package": "com.example.mixin",
+	"package": "com.naurway.skinamarink.client.mixin",
 	"compatibilityLevel": "JAVA_25",
-	"mixins": [
-		"ExampleMixin",
-		"PlayerAdvancementsAccessor",
-		"PlayerAdvancementsMixin"
+	"client": [
+		"MinecraftClientMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

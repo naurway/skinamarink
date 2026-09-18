@@ -1,31 +1,31 @@
 {
 	"schemaVersion": 1,
-	"id": "modid",
+	"id": "skinamarink",
 	"version": "${version}",
-	"name": "Example Mod",
-	"description": "This is an example description! Tell everyone what your mod is about!",
+	"name": "Skinamarink",
+	"description": "A liminal-space horror mod where an LLM-backed entity paces its own dread through absence, drift, and demands rather than jump scares.",
 	"authors": [
-		"Me!"
+		"naurway"
 	],
 	"contact": {
-		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/FabricMC/fabric-example-mod"
+		"homepage": "https://github.com/naurway/skinamarink",
+		"sources": "https://github.com/naurway/skinamarink"
 	},
 	"license": "CC0-1.0",
-	"icon": "assets/modid/icon.png",
+	"icon": "assets/skinamarink/icon.png",
 	"environment": "*",
 	"entrypoints": {
 		"main": [
-			"com.example.ExampleMod"
+			"com.naurway.skinamarink.SkinamarinkMod"
 		],
 		"client": [
-			"com.example.client.ExampleModClient"
+			"com.naurway.skinamarink.client.SkinamarinkModClient"
 		]
 	},
 	"mixins": [
-		"modid.mixins.json",
+		"skinamarink.mixins.json",
 		{
-			"config": "modid.client.mixins.json",
+			"config": "skinamarink.client.mixins.json",
 			"environment": "client"
 		}
 	],

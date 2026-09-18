@@ -1,6 +1,6 @@
-package com.example;
+package com.naurway.skinamarink;
 
-import com.example.ai.SkinamarinkAgent;
+import com.naurway.skinamarink.ai.SkinamarinkAgent;
 import com.google.gson.JsonObject;
 import com.mojang.brigadier.context.CommandContext;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
@@ -31,7 +31,7 @@ public final class SkinamarinkDebugCommands {
     private static int runActivity(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack source = ctx.getSource();
 
-        if (ExampleMod.activityTracker == null) {
+        if (SkinamarinkMod.activityTracker == null) {
             source.sendFailure(Component.literal(
                     "[Skinamarink] Activity tracker isn't initialized yet - is the server fully started?"));
             return 0;
@@ -45,9 +45,9 @@ public final class SkinamarinkDebugCommands {
         }
 
         String playerId = player.getUUID().toString();
-        var recent = ExampleMod.activityTracker.getRecentActions(playerId);
-        String room = ExampleMod.activityTracker.getCurrentRoom(playerId);
-        boolean stationary = ExampleMod.activityTracker.isStationary(playerId, 5);
+        var recent = SkinamarinkMod.activityTracker.getRecentActions(playerId);
+        String room = SkinamarinkMod.activityTracker.getCurrentRoom(playerId);
+        boolean stationary = SkinamarinkMod.activityTracker.isStationary(playerId, 5);
 
         String actionsText = recent.isEmpty() ? "(none recorded yet)" : String.join(", ", recent);
 
@@ -62,7 +62,7 @@ public final class SkinamarinkDebugCommands {
     private static int runTest(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack source = ctx.getSource();
 
-        if (ExampleMod.skinamarinkAgent == null) {
+        if (SkinamarinkMod.skinamarinkAgent == null) {
             source.sendFailure(Component.literal(
                     "[Skinamarink] Agent isn't initialized yet - is the server fully started?"));
             return 0;
@@ -89,11 +89,11 @@ public final class SkinamarinkDebugCommands {
                 null                                           // lastDemandOutcome
         );
 
-        JsonObject memorySummary = (ExampleMod.playerMemory != null)
-                ? ExampleMod.playerMemory.getSummaryForContext()
+        JsonObject memorySummary = (SkinamarinkMod.playerMemory != null)
+                ? SkinamarinkMod.playerMemory.getSummaryForContext()
                 : new JsonObject();
 
-        ExampleMod.skinamarinkAgent.requestDecision(testContext, memorySummary, action -> {
+        SkinamarinkMod.skinamarinkAgent.requestDecision(testContext, memorySummary, action -> {
             String description = describe(action);
             source.sendSuccess(() -> Component.literal("[Skinamarink] Decision: " + description), false);
         });

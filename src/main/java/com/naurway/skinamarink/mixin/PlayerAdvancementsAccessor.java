@@ -1,4 +1,4 @@
-package com.example.mixin;
+package com.naurway.skinamarink.mixin;
 
 import net.minecraft.advancements.PlayerAdvancements;
 import net.minecraft.server.level.ServerPlayer;

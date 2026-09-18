@@ -1,4 +1,4 @@
-package com.example.ai;
+package com.naurway.skinamarink.ai;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;

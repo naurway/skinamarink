@@ -1,4 +1,4 @@
-package com.example.ai;
+package com.naurway.skinamarink.ai;
 import com.google.gson.*;
 import java.io.IOException;
 import java.net.URI;

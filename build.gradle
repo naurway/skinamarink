@@ -15,7 +15,7 @@ loom {
 	splitEnvironmentSourceSets()
 
 	mods {
-		"modid" {
+		"skinamarink" {
 			sourceSet sourceSets.main
 			sourceSet sourceSets.client
 		}
