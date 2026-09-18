@@ -24,13 +24,15 @@ import java.util.concurrent.ConcurrentHashMap;
  * here is deterministic and cheap; the LLM call itself stays fully async on
  * SkinamarinkAgent's side.
  *
- * Two real gaps this does NOT solve, called out rather than faked:
- *  - "Room" is whatever PlayerActivityTracker.setCurrentRoom() was last told,
- *    and nothing calls that yet - there's no room/area-detection system, so
- *    lastRoom/currentRoom reads "unknown" until one exists. STAY_IN_ROOM and
- *    RETURN_TO_LOCATION demands can't meaningfully resolve until then.
- *  - lightSourceActive is a placeholder held-item check (torch/lantern in
- *    hand), not a real "is there a flashlight/light source active" system.
+ * Room tracking is driven by RoomTracker's designer-defined zones (see
+ * /sk room define) - each tick checks every online player's block position
+ * against them and updates PlayerActivityTracker's currentRoom on change,
+ * recording an "entered_room:<id>" action too. A player standing outside any
+ * defined zone reads "unknown", same as before any zones exist at all.
+ *
+ * One real gap this does NOT solve, called out rather than faked:
+ * lightSourceActive is a placeholder held-item check (torch/lantern in
+ * hand), not a real "is there a flashlight/light source active" system.
  */
 public final class SkinamarinkDirector {
 
@@ -51,6 +53,7 @@ public final class SkinamarinkDirector {
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             String playerId = player.getUUID().toString();
             SkinamarinkMod.dreadTracker.tick(playerId);
+            updateRoom(player);
             resolveDemandIfNeeded(player);
         }
 
@@ -64,6 +67,18 @@ public final class SkinamarinkDirector {
                 requestDecision(player, null);
             }
         }
+    }
+
+    private void updateRoom(ServerPlayer player) {
+        if (SkinamarinkMod.roomTracker == null) return;
+
+        String playerId = player.getUUID().toString();
+        String newRoom = SkinamarinkMod.roomTracker.findRoomAt(player.blockPosition());
+        String previousRoom = SkinamarinkMod.activityTracker.getCurrentRoom(playerId);
+        if (newRoom.equals(previousRoom)) return;
+
+        SkinamarinkMod.activityTracker.setCurrentRoom(playerId, newRoom);
+        SkinamarinkMod.activityTracker.recordAction(playerId, "entered_room:" + newRoom);
     }
 
     private void resolveDemandIfNeeded(ServerPlayer player) {

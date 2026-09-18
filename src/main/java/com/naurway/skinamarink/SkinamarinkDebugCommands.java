@@ -8,14 +8,18 @@ import com.google.gson.JsonObject;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * Debug-only commands for testing the AI agent, dread score, demand tracker,
@@ -47,6 +51,17 @@ public final class SkinamarinkDebugCommands {
                                                                 .then(Commands.argument("seconds", IntegerArgumentType.integer(1))
                                                                         .then(Commands.argument("severity", StringArgumentType.word())
                                                                                 .executes(SkinamarinkDebugCommands::runDemandIssue)))))))
+                                .then(Commands.literal("room")
+                                        .then(Commands.literal("define")
+                                                .then(Commands.argument("name", StringArgumentType.word())
+                                                        .then(Commands.argument("from", BlockPosArgument.blockPos())
+                                                                .then(Commands.argument("to", BlockPosArgument.blockPos())
+                                                                        .executes(SkinamarinkDebugCommands::runRoomDefine)))))
+                                        .then(Commands.literal("here").executes(SkinamarinkDebugCommands::runRoomHere))
+                                        .then(Commands.literal("list").executes(SkinamarinkDebugCommands::runRoomList))
+                                        .then(Commands.literal("remove")
+                                                .then(Commands.argument("name", StringArgumentType.word())
+                                                        .executes(SkinamarinkDebugCommands::runRoomRemove))))
                 )
         );
     }
@@ -267,6 +282,88 @@ public final class SkinamarinkDebugCommands {
                     "[Skinamarink] Unknown demand type. Valid: " + java.util.Arrays.toString(DemandTracker.DemandType.values())));
             return 0;
         }
+    }
+
+    private static int runRoomDefine(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        CommandSourceStack source = ctx.getSource();
+
+        if (SkinamarinkMod.roomTracker == null) {
+            source.sendFailure(Component.literal(
+                    "[Skinamarink] Room tracker isn't initialized yet - is the server fully started?"));
+            return 0;
+        }
+
+        String name = StringArgumentType.getString(ctx, "name");
+        BlockPos from = BlockPosArgument.getBlockPos(ctx, "from");
+        BlockPos to = BlockPosArgument.getBlockPos(ctx, "to");
+
+        SkinamarinkMod.roomTracker.defineRoom(name, from, to);
+        source.sendSuccess(() -> Component.literal(
+                "[Skinamarink] Defined room '" + name + "' from " + from.toShortString() + " to " + to.toShortString()), false);
+        return 1;
+    }
+
+    private static int runRoomHere(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+
+        if (SkinamarinkMod.roomTracker == null) {
+            source.sendFailure(Component.literal(
+                    "[Skinamarink] Room tracker isn't initialized yet - is the server fully started?"));
+            return 0;
+        }
+
+        var player = source.getPlayer();
+        if (player == null) {
+            source.sendFailure(Component.literal(
+                    "[Skinamarink] This command must be run by a player, not the console."));
+            return 0;
+        }
+
+        String room = SkinamarinkMod.roomTracker.findRoomAt(player.blockPosition());
+        source.sendSuccess(() -> Component.literal("[Skinamarink] You are in: " + room), false);
+        return 1;
+    }
+
+    private static int runRoomList(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+
+        if (SkinamarinkMod.roomTracker == null) {
+            source.sendFailure(Component.literal(
+                    "[Skinamarink] Room tracker isn't initialized yet - is the server fully started?"));
+            return 0;
+        }
+
+        var zones = SkinamarinkMod.roomTracker.listRooms();
+        if (zones.isEmpty()) {
+            source.sendSuccess(() -> Component.literal("[Skinamarink] No rooms defined yet."), false);
+            return 1;
+        }
+
+        String listing = zones.stream()
+                .map(z -> z.id() + " [" + z.minX() + "," + z.minY() + "," + z.minZ()
+                        + " -> " + z.maxX() + "," + z.maxY() + "," + z.maxZ() + "]")
+                .collect(Collectors.joining(", "));
+        source.sendSuccess(() -> Component.literal("[Skinamarink] Rooms: " + listing), false);
+        return 1;
+    }
+
+    private static int runRoomRemove(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+
+        if (SkinamarinkMod.roomTracker == null) {
+            source.sendFailure(Component.literal(
+                    "[Skinamarink] Room tracker isn't initialized yet - is the server fully started?"));
+            return 0;
+        }
+
+        String name = StringArgumentType.getString(ctx, "name");
+        boolean removed = SkinamarinkMod.roomTracker.removeRoom(name);
+        if (removed) {
+            source.sendSuccess(() -> Component.literal("[Skinamarink] Removed room '" + name + "'"), false);
+            return 1;
+        }
+        source.sendFailure(Component.literal("[Skinamarink] No room named '" + name + "'"));
+        return 0;
     }
 
     private static String describe(SkinamarinkAgent.AgentAction action) {

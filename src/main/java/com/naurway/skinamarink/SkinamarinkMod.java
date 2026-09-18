@@ -4,6 +4,7 @@ import com.naurway.skinamarink.ai.DreadTracker;
 import com.naurway.skinamarink.ai.PlayerActivityTracker;
 import com.naurway.skinamarink.ai.PlayerLogger;
 import com.naurway.skinamarink.ai.PlayerMemory;
+import com.naurway.skinamarink.ai.RoomTracker;
 import com.naurway.skinamarink.ai.SkinamarinkAgent;
 import com.naurway.skinamarink.ai.SkinamarinkDirector;
 import com.naurway.skinamarink.entity.SkinamarinkEntity;
@@ -52,6 +53,7 @@ public class SkinamarinkMod implements ModInitializer {
 	public static SkinamarinkAgent skinamarinkAgent;
 	public static PlayerActivityTracker activityTracker;
 	public static DreadTracker dreadTracker;
+	public static RoomTracker roomTracker;
 	public static SkinamarinkDirector director;
 
 	@Override
@@ -72,6 +74,7 @@ public class SkinamarinkMod implements ModInitializer {
 			}
 			playerLogger = new PlayerLogger(worldSaveId, configDir);
 			playerMemory = new PlayerMemory(worldSaveId, configDir, playerLogger, apiKey);
+			roomTracker = new RoomTracker(worldSaveId, configDir);
 			skinamarinkAgent = new SkinamarinkAgent(apiKey, server::execute);
 
             UseBlockCallback.EVENT.register((player, world, hand, hitResult) -> {

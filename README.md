@@ -57,6 +57,14 @@ invisible/silent entity, used only as a position/line-of-sight anchor.
   build `PlayerMemory` and for debug tooling.
 - **`PlayerActivityTracker`** — a fast in-memory rolling window (recent
   actions, current room, movement) used to build each decision's context.
+- **`RoomTracker`** — named cuboid regions ("rooms") that the map designer
+  defines by hand via `/sk room define`, persisted per world-save. Not
+  automatic physical room detection — for a hand-built liminal-space
+  structure, the designer already knows where the rooms are, and
+  `STAY_IN_ROOM`/`RETURN_TO_LOCATION`/`reconfigure_geometry`'s `target_room`
+  all want a stable, named place to refer to. `SkinamarinkDirector` checks
+  every online player's position against these zones once a second and
+  updates `PlayerActivityTracker`'s current room on change.
 
 ## Setup
 
@@ -90,24 +98,26 @@ deterministic fallback behavior alone.
   demand (e.g. `/sk demand issue REMAIN_STATIONARY none 20 medium`), for
   testing `DemandTracker` resolution without waiting on the agent to issue
   one itself. `room` is only used by `STAY_IN_ROOM`/`RETURN_TO_LOCATION`.
+- `/sk room define <name> <from> <to>` — defines a named cuboid room from
+  two block-position corners (e.g. `/sk room define kitchen ~ ~ ~ ~10 ~5 ~8`).
+- `/sk room here` — prints which defined room you're currently standing in
+  (`unknown` if none).
+- `/sk room list` — lists all defined rooms and their bounds.
+- `/sk room remove <name>` — deletes a defined room.
 
 ## Status
 
-Early WIP. The agent, dread score, memory, demand-tracking, entity, and
-decision-cycle driver are all wired up and testable via the debug commands.
-Two real gaps remain in what the driver can observe:
-
-- **No room/area system.** `PlayerActivityTracker.setCurrentRoom()` is never
-  called anywhere yet, so `lastRoom` always reads `"unknown"` and
-  `STAY_IN_ROOM`/`RETURN_TO_LOCATION` demands can't meaningfully resolve
-  until some room-tagging system exists.
-- **`lightSourceActive` is a placeholder** — a simple held-torch/lantern
-  check, not a real flashlight/light-source mechanic.
+Early WIP. The agent, dread score, memory, demand-tracking, room-tracking,
+entity, and decision-cycle driver are all wired up and testable via the
+debug commands. One real gap remains in what the driver can observe:
+`lightSourceActive` is a placeholder held-torch/lantern check, not a real
+flashlight/light-source mechanic.
 
 And there's still no hint/effect/manifestation/geometry-reconfiguration
 content behind the agent's tool calls — `SkinamarinkDirector` applies dread
-deltas, demand issuance, and memory writes for real, but anything meant to
-actually be seen or heard in-game currently only logs to console.
+deltas, demand issuance, room tracking, and memory writes for real, but
+anything meant to actually be seen or heard in-game currently only logs to
+console.
 
 ## License
 
