@@ -23,8 +23,40 @@ public final class SkinamarinkDebugCommands {
                 dispatcher.register(
                         Commands.literal("sk")
                                 .then(Commands.literal("test").executes(SkinamarinkDebugCommands::runTest))
+                                .then(Commands.literal("activity").executes(SkinamarinkDebugCommands::runActivity))
                 )
         );
+    }
+
+    private static int runActivity(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+
+        if (ExampleMod.activityTracker == null) {
+            source.sendFailure(Component.literal(
+                    "[Skinamarink] Activity tracker isn't initialized yet - is the server fully started?"));
+            return 0;
+        }
+
+        var player = source.getPlayer();
+        if (player == null) {
+            source.sendFailure(Component.literal(
+                    "[Skinamarink] This command must be run by a player, not the console."));
+            return 0;
+        }
+
+        String playerId = player.getUUID().toString();
+        var recent = ExampleMod.activityTracker.getRecentActions(playerId);
+        String room = ExampleMod.activityTracker.getCurrentRoom(playerId);
+        boolean stationary = ExampleMod.activityTracker.isStationary(playerId, 5);
+
+        String actionsText = recent.isEmpty() ? "(none recorded yet)" : String.join(", ", recent);
+
+        source.sendSuccess(() -> Component.literal(
+                "[Skinamarink] Room: " + room
+                        + " | Stationary(5s+): " + stationary
+                        + " | Recent actions: " + actionsText), false);
+
+        return 1;
     }
 
     private static int runTest(CommandContext<CommandSourceStack> ctx) {

@@ -43,9 +43,7 @@ public class ExampleMod implements ModInitializer {
 			if (apiKey == null || apiKey.isBlank()) {
 				LOGGER.warn("SKINAMARINK_ANTHROPIC_KEY is not set! The AI agent will silently no-op until it is.");
 			}
-            activityTracker = new PlayerActivityTracker();
 			playerLogger = new PlayerLogger(worldSaveId, configDir);
-            PlayerActivityTracker activityTracker = null;
 			playerMemory = new PlayerMemory(worldSaveId, configDir, playerLogger, apiKey);
 			skinamarinkAgent = new SkinamarinkAgent(apiKey, server::execute);
 
