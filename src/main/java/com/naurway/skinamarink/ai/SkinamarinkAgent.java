@@ -1,5 +1,8 @@
 package com.naurway.skinamarink.ai;
 import com.google.gson.*;
+import com.naurway.skinamarink.content.AmbientTable;
+import com.naurway.skinamarink.content.EffectTable;
+import com.naurway.skinamarink.content.HintTable;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -267,11 +270,11 @@ public final class SkinamarinkAgent {
                 )));
 
         tools.add(tool("whisper_hint", "Trigger a subtle audio/visual hint from the existing hint table.",
-                props(prop("hint_id", "string", "id from the mod's hint table, e.g. 'floorboard_creak', 'lights_flicker'"))));
+                props(prop("hint_id", "string", "one of: " + idList(HintTable.values())))));
 
         tools.add(tool("spawn_effect", "Spawn a scripted ambient effect.",
                 props(
-                    prop("effect_id", "string", "id from the mod's effect table"),
+                    prop("effect_id", "string", "one of: " + idList(EffectTable.values())),
                     prop("location", "string", "one of: near_player, behind_player, last_room")
                 )));
 
@@ -285,7 +288,7 @@ public final class SkinamarinkAgent {
                 )));
 
         tools.add(tool("loop_ambient", "Play a quiet looping audio texture (old static, a repeating simple sound) - not an event, a background wrongness.",
-                props(prop("loop_id", "string", "id from the mod's ambient loop table"))));
+                props(prop("loop_id", "string", "one of: " + idList(AmbientTable.values())))));
 
         tools.add(tool("record_observation", "Write a note to persistent player memory. No in-game effect - use this often, it's how the entity 'learns' this player.",
                 props(
@@ -334,6 +337,16 @@ public final class SkinamarinkAgent {
         p.addProperty("type", type);
         p.addProperty("description", description);
         return p;
+    }
+
+    /** Renders an enum's constant names as a comma-separated list, lowercased to match how the model should send them. */
+    private String idList(Enum<?>[] values) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < values.length; i++) {
+            if (i > 0) sb.append(", ");
+            sb.append(values[i].name().toLowerCase());
+        }
+        return sb.toString();
     }
 
     // ---- Response parsing --------------------------------------------------

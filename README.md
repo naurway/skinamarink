@@ -65,6 +65,22 @@ invisible/silent entity, used only as a position/line-of-sight anchor.
   all want a stable, named place to refer to. `SkinamarinkDirector` checks
   every online player's position against these zones once a second and
   updates `PlayerActivityTracker`'s current room on change.
+- **`content` package** (`HintTable`, `EffectTable`, `AmbientTable`,
+  `AmbientLoopTracker`, `SkinamarinkFx`) — the real payloads behind
+  `whisper_hint`, `spawn_effect`, and `loop_ambient`. Each table maps an id
+  to a stock vanilla sound/particle (no custom audio assets yet — easy to
+  swap in real ones later without touching the agent or its schema). All
+  playback is aimed at just the targeted player (`playNotifySound` /
+  the per-player `sendParticles` overload), never broadcast to everyone
+  nearby. `spawn_effect`'s `location` resolves to the player's position,
+  ~2.5 blocks behind their facing, or their current room's center (via
+  `RoomTracker`) for `near_player`/`behind_player`/`last_room`.
+  `loop_ambient` isn't a true server-driven audio loop (no looping sound
+  asset exists) — it's approximated by replaying the same sound once a
+  second for a set duration, tracked per-player in `AmbientLoopTracker` and
+  ticked by `SkinamarinkDirector`. `SkinamarinkAgent`'s tool schema lists
+  the tables' valid ids directly (generated from the enums), so the model
+  reliably picks real content instead of inventing ids.
 
 ## Setup
 
@@ -108,16 +124,20 @@ deterministic fallback behavior alone.
 ## Status
 
 Early WIP. The agent, dread score, memory, demand-tracking, room-tracking,
-entity, and decision-cycle driver are all wired up and testable via the
-debug commands. One real gap remains in what the driver can observe:
-`lightSourceActive` is a placeholder held-torch/lantern check, not a real
-flashlight/light-source mechanic.
+entity, decision-cycle driver, and hint/effect/ambient content are all wired
+up and testable via the debug commands — `whisper_hint`, `spawn_effect`, and
+`loop_ambient` now actually play a sound or spawn particles for the targeted
+player instead of only logging. What's still open:
 
-And there's still no hint/effect/manifestation/geometry-reconfiguration
-content behind the agent's tool calls — `SkinamarinkDirector` applies dread
-deltas, demand issuance, room tracking, and memory writes for real, but
-anything meant to actually be seen or heard in-game currently only logs to
-console.
+- **`manifest` and `reconfigure_geometry` are still stubs** (log only) —
+  they need their own content/mechanics (the signature "geometry drift"
+  mechanic in particular hasn't been started).
+- **`lightSourceActive` is a placeholder** — a held-torch/lantern check, not
+  a real flashlight/light-source mechanic.
+- **Vanilla placeholder audio.** The content tables use stock vanilla
+  `SoundEvents`/`ParticleTypes` since the mod has no custom sound assets
+  yet — the ids are stable, so swapping in real recorded audio later won't
+  touch the agent or `SkinamarinkDirector`.
 
 ## License
 

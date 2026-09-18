@@ -2,6 +2,7 @@ package com.naurway.skinamarink.ai;
 
 import com.google.gson.JsonObject;
 import com.naurway.skinamarink.SkinamarinkMod;
+import com.naurway.skinamarink.content.SkinamarinkFx;
 import com.naurway.skinamarink.entity.SkinamarinkEntity;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -30,6 +31,11 @@ import java.util.concurrent.ConcurrentHashMap;
  * recording an "entered_room:<id>" action too. A player standing outside any
  * defined zone reads "unknown", same as before any zones exist at all.
  *
+ * whisper_hint/spawn_effect/loop_ambient play real content (see
+ * com.naurway.skinamarink.content) aimed only at the targeted player.
+ * manifest and reconfigure_geometry are still stubs (log only) - they need
+ * their own content/mechanics, deliberately out of scope here.
+ *
  * One real gap this does NOT solve, called out rather than faked:
  * lightSourceActive is a placeholder held-item check (torch/lantern in
  * hand), not a real "is there a flashlight/light source active" system.
@@ -54,6 +60,7 @@ public final class SkinamarinkDirector {
             String playerId = player.getUUID().toString();
             SkinamarinkMod.dreadTracker.tick(playerId);
             updateRoom(player);
+            replayAmbientLoop(player);
             resolveDemandIfNeeded(player);
         }
 
@@ -79,6 +86,12 @@ public final class SkinamarinkDirector {
 
         SkinamarinkMod.activityTracker.setCurrentRoom(playerId, newRoom);
         SkinamarinkMod.activityTracker.recordAction(playerId, "entered_room:" + newRoom);
+    }
+
+    private void replayAmbientLoop(ServerPlayer player) {
+        if (SkinamarinkMod.ambientLoopTracker == null) return;
+        SkinamarinkMod.ambientLoopTracker.currentLoop(player.getUUID().toString())
+                .ifPresent(loop -> SkinamarinkFx.playLoopBeat(player, loop));
     }
 
     private void resolveDemandIfNeeded(ServerPlayer player) {
@@ -151,12 +164,16 @@ public final class SkinamarinkDirector {
             case SkinamarinkAgent.AgentAction.WhisperHint a -> {
                 dread.markEvent(playerId);
                 recordTool(playerId, "whisper_hint", a.hintId());
-                SkinamarinkMod.LOGGER.info("[Skinamarink] whisper_hint: {} (no hint/audio table wired up yet)", a.hintId());
+                if (!SkinamarinkFx.playHint(player, a.hintId())) {
+                    SkinamarinkMod.LOGGER.warn("[Skinamarink] whisper_hint: unknown hint_id '{}'", a.hintId());
+                }
             }
             case SkinamarinkAgent.AgentAction.SpawnEffect a -> {
                 dread.markEvent(playerId);
                 recordTool(playerId, "spawn_effect", a.effectId() + "@" + a.location());
-                SkinamarinkMod.LOGGER.info("[Skinamarink] spawn_effect: {} @ {} (no effect table wired up yet)", a.effectId(), a.location());
+                if (!SkinamarinkFx.spawnEffect(player, a.effectId(), a.location())) {
+                    SkinamarinkMod.LOGGER.warn("[Skinamarink] spawn_effect: unknown effect_id '{}'", a.effectId());
+                }
             }
             case SkinamarinkAgent.AgentAction.Manifest a -> {
                 dread.markEvent(playerId);
@@ -171,7 +188,9 @@ public final class SkinamarinkDirector {
             case SkinamarinkAgent.AgentAction.LoopAmbient a -> {
                 dread.markEvent(playerId);
                 recordTool(playerId, "loop_ambient", a.loopId());
-                SkinamarinkMod.LOGGER.info("[Skinamarink] loop_ambient: {} (no ambient-loop table wired up yet)", a.loopId());
+                if (!SkinamarinkFx.startAmbientLoop(player, a.loopId())) {
+                    SkinamarinkMod.LOGGER.warn("[Skinamarink] loop_ambient: unknown loop_id '{}'", a.loopId());
+                }
             }
             case SkinamarinkAgent.AgentAction.RecordObservation a -> {
                 if (SkinamarinkMod.playerMemory != null) {
