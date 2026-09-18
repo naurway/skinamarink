@@ -33,7 +33,11 @@ public final class DreadTracker {
     private static final int COMPLIED_DELTA = -4;
     private static final int EXPIRED_DELTA = -2;
 
+    // Reported for a player who hasn't had an event yet this session - "a very long time."
+    private static final int NEVER_SECONDS = 999_999;
+
     private final Map<String, Double> scores = new ConcurrentHashMap<>();
+    private final Map<String, Long> lastEventAtMillis = new ConcurrentHashMap<>();
 
     public double getScore(String playerId) {
         return scores.getOrDefault(playerId, (double) BASELINE);
@@ -65,6 +69,17 @@ public final class DreadTracker {
 
     public void reset(String playerId) {
         scores.put(playerId, (double) BASELINE);
+    }
+
+    /** Call whenever a whisper_hint/spawn_effect/manifest/reconfigure_geometry/loop_ambient actually fires. */
+    public void markEvent(String playerId) {
+        lastEventAtMillis.put(playerId, System.currentTimeMillis());
+    }
+
+    public int secondsSinceLastEvent(String playerId) {
+        Long last = lastEventAtMillis.get(playerId);
+        if (last == null) return NEVER_SECONDS;
+        return (int) ((System.currentTimeMillis() - last) / 1000);
     }
 
     private static double clamp(double v) {

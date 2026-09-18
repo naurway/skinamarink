@@ -5,6 +5,7 @@ import com.naurway.skinamarink.ai.PlayerActivityTracker;
 import com.naurway.skinamarink.ai.PlayerLogger;
 import com.naurway.skinamarink.ai.PlayerMemory;
 import com.naurway.skinamarink.ai.SkinamarinkAgent;
+import com.naurway.skinamarink.ai.SkinamarinkDirector;
 import com.naurway.skinamarink.entity.SkinamarinkEntity;
 
 import net.fabricmc.api.ModInitializer;
@@ -51,6 +52,7 @@ public class SkinamarinkMod implements ModInitializer {
 	public static SkinamarinkAgent skinamarinkAgent;
 	public static PlayerActivityTracker activityTracker;
 	public static DreadTracker dreadTracker;
+	public static SkinamarinkDirector director;
 
 	@Override
 	public void onInitialize() {
@@ -63,6 +65,7 @@ public class SkinamarinkMod implements ModInitializer {
 			Path configDir = FabricLoader.getInstance().getConfigDir();
 			activityTracker = new PlayerActivityTracker();
 			dreadTracker = new DreadTracker();
+			director = new SkinamarinkDirector();
 			String apiKey = System.getenv("SKINAMARINK_ANTHROPIC_KEY");
 			if (apiKey == null || apiKey.isBlank()) {
 				LOGGER.warn("SKINAMARINK_ANTHROPIC_KEY is not set! The AI agent will silently no-op until it is.");
@@ -80,15 +83,14 @@ public class SkinamarinkMod implements ModInitializer {
                 return net.minecraft.world.InteractionResult.PASS;
             });
 
-            // Decay every tracked player's dread once a second (20 ticks @ 20 TPS).
-            final int[] dreadTickCounter = {0};
+            // Runs the director once a second (20 ticks @ 20 TPS): dread decay,
+            // demand resolution, and the periodic decision beat.
+            final int[] directorTickCounter = {0};
             ServerTickEvents.END_SERVER_TICK.register(srv -> {
-                dreadTickCounter[0]++;
-                if (dreadTickCounter[0] < 20) return;
-                dreadTickCounter[0] = 0;
-                for (var onlinePlayer : srv.getPlayerList().getPlayers()) {
-                    dreadTracker.tick(onlinePlayer.getUUID().toString());
-                }
+                directorTickCounter[0]++;
+                if (directorTickCounter[0] < 20) return;
+                directorTickCounter[0] = 0;
+                director.tick(srv);
             });
 
 			LOGGER.info("Skinamarink AI systems initialized.");

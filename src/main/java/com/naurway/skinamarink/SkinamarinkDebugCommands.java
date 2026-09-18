@@ -1,10 +1,12 @@
 package com.naurway.skinamarink;
 
+import com.naurway.skinamarink.ai.DemandTracker;
 import com.naurway.skinamarink.ai.DreadTracker;
 import com.naurway.skinamarink.ai.SkinamarinkAgent;
 import com.naurway.skinamarink.entity.SkinamarinkEntity;
 import com.google.gson.JsonObject;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.commands.CommandSourceStack;
@@ -13,11 +15,15 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 
+import java.util.Optional;
+
 /**
- * Debug-only commands for testing the AI agent, dread score, and entity
- * without needing the real decision-cycle driver built yet. Run "/sk test"
- * in-game (or in the server console) to fire one real request at Anthropic
- * and see what the agent decided, printed straight to chat.
+ * Debug-only commands for testing the AI agent, dread score, demand tracker,
+ * and entity. Run "/sk test" in-game (or in the server console) to fire one
+ * real request at Anthropic and see what the agent decided, printed
+ * straight to chat - it uses the real SkinamarinkDirector context when an
+ * entity is nearby (run "/sk spawn" first), falling back to a hand-built
+ * fake context otherwise.
  */
 public final class SkinamarinkDebugCommands {
 
@@ -34,6 +40,13 @@ public final class SkinamarinkDebugCommands {
                                         .then(Commands.literal("adjust")
                                                 .then(Commands.argument("delta", IntegerArgumentType.integer())
                                                         .executes(SkinamarinkDebugCommands::runDreadAdjust))))
+                                .then(Commands.literal("demand").executes(SkinamarinkDebugCommands::runDemandStatus)
+                                        .then(Commands.literal("issue")
+                                                .then(Commands.argument("type", StringArgumentType.word())
+                                                        .then(Commands.argument("room", StringArgumentType.word())
+                                                                .then(Commands.argument("seconds", IntegerArgumentType.integer(1))
+                                                                        .then(Commands.argument("severity", StringArgumentType.word())
+                                                                                .executes(SkinamarinkDebugCommands::runDemandIssue)))))))
                 )
         );
     }
@@ -78,32 +91,42 @@ public final class SkinamarinkDebugCommands {
             return 0;
         }
 
-        source.sendSuccess(() -> Component.literal("[Skinamarink] Asking the agent for a decision..."), false);
-
-        // Hand-built fake context - stand-in for what the real decision-cycle
-        // driver will eventually build every cycle. Real fearScore is pulled
-        // from DreadTracker if a player is running the command; everything
-        // else here is still a placeholder.
-        JsonObject fakeActiveDemand = new JsonObject();
-        fakeActiveDemand.addProperty("active", false);
-
         var testPlayer = source.getPlayer();
-        int fearScore = (SkinamarinkMod.dreadTracker != null && testPlayer != null)
-                ? SkinamarinkMod.dreadTracker.getScoreRounded(testPlayer.getUUID().toString())
-                : DreadTracker.BASELINE;
+        Optional<SkinamarinkAgent.EntityContext> realContext = (SkinamarinkMod.director != null && testPlayer != null)
+                ? SkinamarinkMod.director.buildContext(testPlayer, null)
+                : Optional.empty();
 
-        SkinamarinkAgent.EntityContext testContext = new SkinamarinkAgent.EntityContext(
-                fearScore,                                    // fearScore
-                8.0,                                          // distanceToPlayer
-                false,                                        // playerIsLookingAtEntity
-                true,                                         // playerIsStationary
-                90,                                           // secondsSinceLastEvent
-                "night",                                      // timeOfDay
-                "test_room",                                  // lastRoom
-                java.util.List.of("opened_door", "backtracked"), // recentPlayerActions
-                fakeActiveDemand,                              // activeDemand
-                null                                           // lastDemandOutcome
-        );
+        SkinamarinkAgent.EntityContext testContext;
+        if (realContext.isPresent()) {
+            testContext = realContext.get();
+            source.sendSuccess(() -> Component.literal(
+                    "[Skinamarink] Asking the agent for a decision (real context - entity found nearby)..."), false);
+        } else {
+            source.sendSuccess(() -> Component.literal(
+                    "[Skinamarink] Asking the agent for a decision (fake context - run /sk spawn first for a real one)..."), false);
+
+            // Hand-built fake context, used only when no entity is nearby this
+            // player yet. Real fearScore is still pulled from DreadTracker.
+            JsonObject fakeActiveDemand = new JsonObject();
+            fakeActiveDemand.addProperty("active", false);
+
+            int fearScore = (SkinamarinkMod.dreadTracker != null && testPlayer != null)
+                    ? SkinamarinkMod.dreadTracker.getScoreRounded(testPlayer.getUUID().toString())
+                    : DreadTracker.BASELINE;
+
+            testContext = new SkinamarinkAgent.EntityContext(
+                    fearScore,                                    // fearScore
+                    8.0,                                          // distanceToPlayer
+                    false,                                        // playerIsLookingAtEntity
+                    true,                                         // playerIsStationary
+                    90,                                           // secondsSinceLastEvent
+                    "night",                                      // timeOfDay
+                    "test_room",                                  // lastRoom
+                    java.util.List.of("opened_door", "backtracked"), // recentPlayerActions
+                    fakeActiveDemand,                              // activeDemand
+                    null                                           // lastDemandOutcome
+            );
+        }
 
         JsonObject memorySummary = (SkinamarinkMod.playerMemory != null)
                 ? SkinamarinkMod.playerMemory.getSummaryForContext()
@@ -181,6 +204,69 @@ public final class SkinamarinkDebugCommands {
         int score = SkinamarinkMod.dreadTracker.getScoreRounded(player.getUUID().toString());
         source.sendSuccess(() -> Component.literal("[Skinamarink] Dread adjusted by " + delta + " -> " + score), false);
         return 1;
+    }
+
+    private static int runDemandStatus(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+
+        if (SkinamarinkMod.director == null) {
+            source.sendFailure(Component.literal(
+                    "[Skinamarink] Director isn't initialized yet - is the server fully started?"));
+            return 0;
+        }
+
+        var player = source.getPlayer();
+        if (player == null) {
+            source.sendFailure(Component.literal(
+                    "[Skinamarink] This command must be run by a player, not the console."));
+            return 0;
+        }
+
+        DemandTracker demand = SkinamarinkMod.director.demandTrackerFor(player.getUUID().toString());
+        String status = demand.hasActiveDemand() ? demand.toContextJson().toString() : "(none active)";
+        source.sendSuccess(() -> Component.literal("[Skinamarink] Demand: " + status), false);
+        return 1;
+    }
+
+    private static int runDemandIssue(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+
+        if (SkinamarinkMod.director == null) {
+            source.sendFailure(Component.literal(
+                    "[Skinamarink] Director isn't initialized yet - is the server fully started?"));
+            return 0;
+        }
+
+        var player = source.getPlayer();
+        if (player == null) {
+            source.sendFailure(Component.literal(
+                    "[Skinamarink] This command must be run by a player, not the console."));
+            return 0;
+        }
+
+        DemandTracker demand = SkinamarinkMod.director.demandTrackerFor(player.getUUID().toString());
+        if (demand.hasActiveDemand()) {
+            source.sendFailure(Component.literal(
+                    "[Skinamarink] A demand is already active - wait for it to resolve first."));
+            return 0;
+        }
+
+        String typeArg = StringArgumentType.getString(ctx, "type");
+        String room = StringArgumentType.getString(ctx, "room");
+        int seconds = IntegerArgumentType.getInteger(ctx, "seconds");
+        String severity = StringArgumentType.getString(ctx, "severity");
+
+        try {
+            DemandTracker.DemandType type = DemandTracker.DemandType.valueOf(typeArg.toUpperCase());
+            demand.issue(type, room, seconds, severity);
+            source.sendSuccess(() -> Component.literal(
+                    "[Skinamarink] Issued " + type + " (room=" + room + ", " + seconds + "s, " + severity + ")"), false);
+            return 1;
+        } catch (IllegalArgumentException e) {
+            source.sendFailure(Component.literal(
+                    "[Skinamarink] Unknown demand type. Valid: " + java.util.Arrays.toString(DemandTracker.DemandType.values())));
+            return 0;
+        }
     }
 
     private static String describe(SkinamarinkAgent.AgentAction action) {

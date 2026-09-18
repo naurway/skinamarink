@@ -37,6 +37,14 @@ invisible/silent entity, used only as a position/line-of-sight anchor.
 - **`SkinamarinkEntity`** — the entity itself: a real spawned entity, always
   invisible and silent, that exists purely so distance/line-of-sight/
   "behind_player" placement have something real to measure against.
+- **`SkinamarinkDirector`** — the real decision-cycle driver. Once a second it
+  decays dread, re-evaluates every player's active demand against real
+  telemetry (stationary, looking-at-entity via view-vector + line-of-sight,
+  held-light-source), and calls the agent at the two decision points that
+  matter: periodically (every 15s, subject to the agent's own cooldown) and
+  immediately when a demand resolves. It also applies whatever comes back —
+  dread deltas, demand issuance, `record_observation` into `PlayerMemory`,
+  and `recordToolCall` for the anti-repetition list.
 - **`DemandTracker`** — deterministic state machine for the entity's
   "demands" (e.g. *don't look at me for 30 seconds*), evaluated every tick
   with no LLM involvement until the demand resolves (complied/violated/
@@ -66,9 +74,10 @@ deterministic fallback behavior alone.
 
 ### Debug commands
 
-- `/sk test` — fires one real request at the agent with a hand-built fake
-  context (using your real dread score, if any) and prints the resulting
-  decision to chat.
+- `/sk test` — fires one real request at the agent. Uses the real
+  `SkinamarinkDirector` context if an entity is nearby (`/sk spawn` it
+  first), otherwise falls back to a hand-built fake one. Prints the
+  resulting decision to chat.
 - `/sk activity` — dumps the calling player's tracked room, stationary
   status, and recent actions.
 - `/sk spawn` — spawns the invisible entity at your position, for testing
@@ -76,16 +85,29 @@ deterministic fallback behavior alone.
 - `/sk dread` — prints your current dread score and the thresholds.
 - `/sk dread adjust <delta>` — nudges your dread score, for testing gating
   without waiting on real events.
+- `/sk demand` — prints your currently active demand, if any.
+- `/sk demand issue <type> <room> <seconds> <severity>` — manually issues a
+  demand (e.g. `/sk demand issue REMAIN_STATIONARY none 20 medium`), for
+  testing `DemandTracker` resolution without waiting on the agent to issue
+  one itself. `room` is only used by `STAY_IN_ROOM`/`RETURN_TO_LOCATION`.
 
 ## Status
 
-Early WIP. The agent, dread score, memory, demand-tracking, and entity
-layers are wired up and testable via the debug commands, but there's no
-decision-cycle driver building real `EntityContext`s off live gameplay yet
-(distance/line-of-sight/room tracking, demand telemetry), and no hint/effect/
-manifestation/geometry-reconfiguration content behind the agent's tool calls
-— they currently have nowhere to land except debug chat output and the
-dread-score enforcement itself.
+Early WIP. The agent, dread score, memory, demand-tracking, entity, and
+decision-cycle driver are all wired up and testable via the debug commands.
+Two real gaps remain in what the driver can observe:
+
+- **No room/area system.** `PlayerActivityTracker.setCurrentRoom()` is never
+  called anywhere yet, so `lastRoom` always reads `"unknown"` and
+  `STAY_IN_ROOM`/`RETURN_TO_LOCATION` demands can't meaningfully resolve
+  until some room-tagging system exists.
+- **`lightSourceActive` is a placeholder** — a simple held-torch/lantern
+  check, not a real flashlight/light-source mechanic.
+
+And there's still no hint/effect/manifestation/geometry-reconfiguration
+content behind the agent's tool calls — `SkinamarinkDirector` applies dread
+deltas, demand issuance, and memory writes for real, but anything meant to
+actually be seen or heard in-game currently only logs to console.
 
 ## License
 
