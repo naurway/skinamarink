@@ -16,8 +16,8 @@ import java.util.concurrent.Executors;
  *
  * Design principles:
  *  - The LLM is NEVER on the hot path. It is not called every tick. It is only
- *    consulted at deliberate "decision points" (tier transitions, or every N
- *    seconds while HUNTING/MANIFEST), and it runs fully async off the server
+ *    consulted at deliberate "decision points" (a demand resolving, or every N
+ *    seconds while dread is elevated), and it runs fully async off the server
  *    thread. The actual movement/pathfinding/rendering stays in your existing
  *    GeckoLib controller and vanilla-style Java entity code - deterministic,
  *    fast, no network dependency.
@@ -26,10 +26,15 @@ import java.util.concurrent.Executors;
  *    spawn effect, do nothing) and MUST pick from that menu. This keeps the
  *    entity's behavior safe, bounded, and debuggable - the LLM is choosing
  *    WHICH scripted event to fire and roughly WHEN, not writing new behavior.
+ *  - There are no fear tiers - only DreadTracker's continuous fear_score,
+ *    which decays toward a resting baseline on its own. Bigger tool calls are
+ *    gated by score thresholds (see DreadTracker), enforced here server-side
+ *    (enforceThresholds) as well as by the system prompt, so a model that
+ *    ignores the prompt's guidance still can't jump straight to a manifest.
  *  - If the API call fails, times out, or the player has no internet-dependent
- *    settings enabled, we fall back silently to your deterministic fear-tier
- *    state machine. The LLM layer is a "flavor" enhancement, never a
- *    dependency for the mod to function.
+ *    settings enabled, we fall back silently to a conservative deterministic
+ *    default. The LLM layer is a "flavor" enhancement, never a dependency for
+ *    the mod to function.
  */
 public final class SkinamarinkAgent {
 
@@ -64,8 +69,7 @@ public final class SkinamarinkAgent {
      * data beyond what you already track for gameplay.
      */
     public record EntityContext(
-            String fearTier,              // "DORMANT" | "AWARE" | "HUNTING" | "MANIFEST"
-            int fearScore,                // raw numeric score backing the tier
+            int fearScore,                // 0-100, from DreadTracker - the only escalation signal, no tiers
             double distanceToPlayer,      // blocks
             boolean playerIsLookingAtEntity,
             boolean playerIsStationary,   // hasn't moved in last N ticks
@@ -121,6 +125,7 @@ public final class SkinamarinkAgent {
                     return body;
                 })
                 .thenApply(this::parseAction)
+                .thenApply(action -> enforceThresholds(action, ctx))
                 .exceptionally(err -> {
                     err.printStackTrace();
                     return fallback(ctx);
@@ -188,6 +193,16 @@ public final class SkinamarinkAgent {
             4. TIME AND SPACE SHOULD DRIFT, NOT SNAP. Prefer gradual changes the player
                might not consciously register (a hallway one block longer than before,
                a torch that's slightly dimmer) over sudden jump-scare-style change.
+            5. FEAR_SCORE REPLACES ANY NOTION OF A NAMED STATE. There are no tiers -
+               only a continuous fear_score (0-100) in the context, which decays toward
+               a low resting baseline whenever nothing happens. Treat it as a budget:
+               below 25, stay to do_nothing / adjust_dread / record_observation /
+               loop_ambient. Once it clears 25, whisper_hint and spawn_effect are
+               appropriate. Once it clears 50, reconfigure_geometry - your primary
+               instrument - becomes available. manifest requires at least 75, and is
+               silently downgraded server-side if you call it below that, so there is
+               no benefit to choosing it speculatively - wait until demand violations
+               or repeated escalation have actually earned it.
 
             You will receive a JSON snapshot of current state plus a persistent memory
             summary of this specific player's patterns across past sessions
@@ -233,9 +248,9 @@ public final class SkinamarinkAgent {
 
             Choose exactly ONE tool call representing the single best next beat for
             tension. Prefer do_nothing or small adjust_dread calls far more often than
-            any visible/audible tool. Never choose manifest unless fear_tier is HUNTING
-            or MANIFEST already. Keep your reasoning implicit in the tool choice - do
-            not add commentary.
+            any visible/audible tool. Never choose manifest unless fear_score is at
+            least 75. Keep your reasoning implicit in the tool choice - do not add
+            commentary.
             """;
     }
 
@@ -260,10 +275,10 @@ public final class SkinamarinkAgent {
                     prop("location", "string", "one of: near_player, behind_player, last_room")
                 )));
 
-        tools.add(tool("manifest", "Trigger a full manifestation event. Only valid at HUNTING or MANIFEST tier. Last resort - prefer reconfigure_geometry.",
+        tools.add(tool("manifest", "Trigger a full manifestation event. Only valid at fear_score >= 75 - calls below that are silently downgraded. Last resort - prefer reconfigure_geometry.",
                 props(prop("manifestation_type", "string", "id from the mod's manifestation table"))));
 
-        tools.add(tool("reconfigure_geometry", "Subtly alter a room/hallway's layout - a door, window, or passage that no longer matches what the player remembers.",
+        tools.add(tool("reconfigure_geometry", "Subtly alter a room/hallway's layout - a door, window, or passage that no longer matches what the player remembers. Only valid at fear_score >= 50 - calls below that are silently downgraded.",
                 props(
                     prop("change_type", "string", "one of: remove_door, shift_hallway_length, relocate_window, remove_window"),
                     prop("target_room", "string", "room/area id, prefer one from the player's own return-route memory when available")
@@ -372,11 +387,32 @@ public final class SkinamarinkAgent {
         return obj.has(key) ? obj.get(key).getAsString() : def;
     }
 
+    // ---- Threshold enforcement -----------------------------------------------
+
+    /**
+     * Server-side guardrail backing the system prompt's fear_score gating - a
+     * model that ignores the prompt still can't skip straight to a big event.
+     * Downgrades are silent (the model is never told its call was denied).
+     */
+    private AgentAction enforceThresholds(AgentAction action, EntityContext ctx) {
+        return switch (action) {
+            case AgentAction.Manifest ignored when ctx.fearScore() < DreadTracker.MANIFEST_THRESHOLD ->
+                    new AgentAction.AdjustDread(5, "manifest_denied_insufficient_dread");
+            case AgentAction.ReconfigureGeometry ignored when ctx.fearScore() < DreadTracker.RECONFIGURE_GEOMETRY_THRESHOLD ->
+                    new AgentAction.AdjustDread(3, "reconfigure_denied_insufficient_dread");
+            case AgentAction.WhisperHint ignored when ctx.fearScore() < DreadTracker.WHISPER_AND_EFFECT_THRESHOLD ->
+                    new AgentAction.DoNothing("whisper_denied_insufficient_dread");
+            case AgentAction.SpawnEffect ignored when ctx.fearScore() < DreadTracker.WHISPER_AND_EFFECT_THRESHOLD ->
+                    new AgentAction.DoNothing("effect_denied_insufficient_dread");
+            default -> action;
+        };
+    }
+
     // ---- Fallback -----------------------------------------------------------
 
     /** Deterministic fallback if the LLM call fails - conservative, never manifests unprompted. */
     private AgentAction fallback(EntityContext ctx) {
-        if ("MANIFEST".equals(ctx.fearTier()) && ctx.secondsSinceLastEvent() > 45) {
+        if (ctx.fearScore() >= DreadTracker.MANIFEST_THRESHOLD && ctx.secondsSinceLastEvent() > 45) {
             return new AgentAction.WhisperHint("floorboard_creak");
         }
         return new AgentAction.DoNothing("fallback");

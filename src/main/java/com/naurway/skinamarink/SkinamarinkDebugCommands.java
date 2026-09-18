@@ -1,18 +1,23 @@
 package com.naurway.skinamarink;
 
+import com.naurway.skinamarink.ai.DreadTracker;
 import com.naurway.skinamarink.ai.SkinamarinkAgent;
+import com.naurway.skinamarink.entity.SkinamarinkEntity;
 import com.google.gson.JsonObject;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 
 /**
- * Debug-only commands for testing the AI agent without needing the real
- * entity/fear-tier systems built yet. Run "/sk test" in-game (or in the
- * server console) to fire one real request at Anthropic and see what the
- * agent decided, printed straight to chat.
+ * Debug-only commands for testing the AI agent, dread score, and entity
+ * without needing the real decision-cycle driver built yet. Run "/sk test"
+ * in-game (or in the server console) to fire one real request at Anthropic
+ * and see what the agent decided, printed straight to chat.
  */
 public final class SkinamarinkDebugCommands {
 
@@ -24,6 +29,11 @@ public final class SkinamarinkDebugCommands {
                         Commands.literal("sk")
                                 .then(Commands.literal("test").executes(SkinamarinkDebugCommands::runTest))
                                 .then(Commands.literal("activity").executes(SkinamarinkDebugCommands::runActivity))
+                                .then(Commands.literal("spawn").executes(SkinamarinkDebugCommands::runSpawn))
+                                .then(Commands.literal("dread").executes(SkinamarinkDebugCommands::runDread)
+                                        .then(Commands.literal("adjust")
+                                                .then(Commands.argument("delta", IntegerArgumentType.integer())
+                                                        .executes(SkinamarinkDebugCommands::runDreadAdjust))))
                 )
         );
     }
@@ -70,14 +80,20 @@ public final class SkinamarinkDebugCommands {
 
         source.sendSuccess(() -> Component.literal("[Skinamarink] Asking the agent for a decision..."), false);
 
-        // Hand-built fake context - stand-in for what the real entity/fear-tier
-        // system will eventually build every decision cycle.
+        // Hand-built fake context - stand-in for what the real decision-cycle
+        // driver will eventually build every cycle. Real fearScore is pulled
+        // from DreadTracker if a player is running the command; everything
+        // else here is still a placeholder.
         JsonObject fakeActiveDemand = new JsonObject();
         fakeActiveDemand.addProperty("active", false);
 
+        var testPlayer = source.getPlayer();
+        int fearScore = (SkinamarinkMod.dreadTracker != null && testPlayer != null)
+                ? SkinamarinkMod.dreadTracker.getScoreRounded(testPlayer.getUUID().toString())
+                : DreadTracker.BASELINE;
+
         SkinamarinkAgent.EntityContext testContext = new SkinamarinkAgent.EntityContext(
-                "HUNTING",                                   // fearTier
-                40,                                           // fearScore
+                fearScore,                                    // fearScore
                 8.0,                                          // distanceToPlayer
                 false,                                        // playerIsLookingAtEntity
                 true,                                         // playerIsStationary
@@ -98,6 +114,72 @@ public final class SkinamarinkDebugCommands {
             source.sendSuccess(() -> Component.literal("[Skinamarink] Decision: " + description), false);
         });
 
+        return 1;
+    }
+
+    private static int runSpawn(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+        ServerPlayer player = source.getPlayer();
+        if (player == null) {
+            source.sendFailure(Component.literal(
+                    "[Skinamarink] This command must be run by a player, not the console."));
+            return 0;
+        }
+
+        ServerLevel level = source.getLevel();
+        SkinamarinkEntity entity = new SkinamarinkEntity(SkinamarinkMod.ENTITY_TYPE, level);
+        entity.setPos(player.getX(), player.getY(), player.getZ());
+        level.addFreshEntity(entity);
+
+        source.sendSuccess(() -> Component.literal(
+                "[Skinamarink] Spawned an invisible entity at your position."), false);
+        return 1;
+    }
+
+    private static int runDread(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+
+        if (SkinamarinkMod.dreadTracker == null) {
+            source.sendFailure(Component.literal(
+                    "[Skinamarink] Dread tracker isn't initialized yet - is the server fully started?"));
+            return 0;
+        }
+
+        var player = source.getPlayer();
+        if (player == null) {
+            source.sendFailure(Component.literal(
+                    "[Skinamarink] This command must be run by a player, not the console."));
+            return 0;
+        }
+
+        int score = SkinamarinkMod.dreadTracker.getScoreRounded(player.getUUID().toString());
+        source.sendSuccess(() -> Component.literal("[Skinamarink] Dread: " + score
+                + " (whisper/effect at " + DreadTracker.WHISPER_AND_EFFECT_THRESHOLD
+                + ", reconfigure_geometry at " + DreadTracker.RECONFIGURE_GEOMETRY_THRESHOLD
+                + ", manifest at " + DreadTracker.MANIFEST_THRESHOLD + ")"), false);
+        return 1;
+    }
+
+    private static int runDreadAdjust(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+
+        if (SkinamarinkMod.dreadTracker == null) {
+            source.sendFailure(Component.literal(
+                    "[Skinamarink] Dread tracker isn't initialized yet - is the server fully started?"));
+            return 0;
+        }
+
+        var player = source.getPlayer();
+        if (player == null) {
+            source.sendFailure(Component.literal(
+                    "[Skinamarink] This command must be run by a player, not the console."));
+            return 0;
+        }
+
+        int delta = IntegerArgumentType.getInteger(ctx, "delta");
+        SkinamarinkMod.dreadTracker.applyDelta(player.getUUID().toString(), delta);
+        int score = SkinamarinkMod.dreadTracker.getScoreRounded(player.getUUID().toString());
+        source.sendSuccess(() -> Component.literal("[Skinamarink] Dread adjusted by " + delta + " -> " + score), false);
         return 1;
     }
 
