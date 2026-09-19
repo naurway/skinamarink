@@ -3,6 +3,7 @@ package com.naurway.skinamarink;
 import com.naurway.skinamarink.ai.DemandTracker;
 import com.naurway.skinamarink.ai.DreadTracker;
 import com.naurway.skinamarink.ai.SkinamarinkAgent;
+import com.naurway.skinamarink.content.GeometryReconfigurer;
 import com.naurway.skinamarink.entity.SkinamarinkEntity;
 import com.google.gson.JsonObject;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
@@ -61,7 +62,11 @@ public final class SkinamarinkDebugCommands {
                                         .then(Commands.literal("list").executes(SkinamarinkDebugCommands::runRoomList))
                                         .then(Commands.literal("remove")
                                                 .then(Commands.argument("name", StringArgumentType.word())
-                                                        .executes(SkinamarinkDebugCommands::runRoomRemove))))
+                                                        .executes(SkinamarinkDebugCommands::runRoomRemove)))
+                                        .then(Commands.literal("reconfigure")
+                                                .then(Commands.argument("name", StringArgumentType.word())
+                                                        .then(Commands.argument("change_type", StringArgumentType.word())
+                                                                .executes(SkinamarinkDebugCommands::runRoomReconfigure)))))
                 )
         );
     }
@@ -363,6 +368,32 @@ public final class SkinamarinkDebugCommands {
             return 1;
         }
         source.sendFailure(Component.literal("[Skinamarink] No room named '" + name + "'"));
+        return 0;
+    }
+
+    private static int runRoomReconfigure(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+
+        var player = source.getPlayer();
+        if (player == null) {
+            source.sendFailure(Component.literal(
+                    "[Skinamarink] This command must be run by a player, not the console."));
+            return 0;
+        }
+
+        String name = StringArgumentType.getString(ctx, "name");
+        String changeType = StringArgumentType.getString(ctx, "change_type");
+
+        boolean applied = GeometryReconfigurer.apply(player, changeType, name);
+        if (applied) {
+            source.sendSuccess(() -> Component.literal(
+                    "[Skinamarink] Applied " + changeType + " in room '" + name + "'"), false);
+            return 1;
+        }
+        source.sendFailure(Component.literal(
+                "[Skinamarink] Could not apply " + changeType + " in room '" + name
+                        + "' - check the room exists, the change_type is valid (remove_door, remove_window, "
+                        + "relocate_window, shift_hallway_length), and an eligible block/space was found."));
         return 0;
     }
 

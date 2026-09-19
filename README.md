@@ -81,6 +81,16 @@ invisible/silent entity, used only as a position/line-of-sight anchor.
   ticked by `SkinamarinkDirector`. `SkinamarinkAgent`'s tool schema lists
   the tables' valid ids directly (generated from the enums), so the model
   reliably picks real content instead of inventing ids.
+- **`GeometryReconfigurer`** — the entity's signature move
+  (`reconfigure_geometry`): `remove_door`, `remove_window`,
+  `relocate_window`, `shift_hallway_length`. Every mutation stays strictly
+  inside the target room's own `RoomTracker` zone, or — for
+  `shift_hallway_length`'s extension only — into space immediately beyond
+  it that's confirmed air first. Nothing it does ever overwrites a block
+  outside what the map designer explicitly claimed as that room, or a
+  non-air block the designer didn't define as part of it. `target_room`
+  must be a real room id (`/sk room define` it first) or the call silently
+  does nothing.
 
 ## Setup
 
@@ -120,24 +130,31 @@ deterministic fallback behavior alone.
   (`unknown` if none).
 - `/sk room list` — lists all defined rooms and their bounds.
 - `/sk room remove <name>` — deletes a defined room.
+- `/sk room reconfigure <name> <change_type>` — manually applies a
+  `reconfigure_geometry` change (`remove_door`, `remove_window`,
+  `relocate_window`, `shift_hallway_length`) to a defined room, for testing
+  `GeometryReconfigurer` without waiting on the agent.
 
 ## Status
 
 Early WIP. The agent, dread score, memory, demand-tracking, room-tracking,
-entity, decision-cycle driver, and hint/effect/ambient content are all wired
-up and testable via the debug commands — `whisper_hint`, `spawn_effect`, and
-`loop_ambient` now actually play a sound or spawn particles for the targeted
-player instead of only logging. What's still open:
+entity, decision-cycle driver, and hint/effect/ambient/geometry content are
+all wired up and testable via the debug commands — `whisper_hint`,
+`spawn_effect`, `loop_ambient`, and now `reconfigure_geometry` all actually
+do something in-game instead of only logging. What's still open:
 
-- **`manifest` and `reconfigure_geometry` are still stubs** (log only) —
-  they need their own content/mechanics (the signature "geometry drift"
-  mechanic in particular hasn't been started).
+- **`manifest` is still a stub** (log only) — it needs its own content/
+  mechanic (a rare, unsettling appearance for the entity).
 - **`lightSourceActive` is a placeholder** — a held-torch/lantern check, not
   a real flashlight/light-source mechanic.
 - **Vanilla placeholder audio.** The content tables use stock vanilla
   `SoundEvents`/`ParticleTypes` since the mod has no custom sound assets
   yet — the ids are stable, so swapping in real recorded audio later won't
   touch the agent or `SkinamarinkDirector`.
+- **`shift_hallway_length` only extends "outward"** into confirmed-empty
+  space adjacent to the room's far end along its longer axis — if that
+  space isn't free, the call is a safe no-op rather than clipping into
+  whatever's there. There's no "shrink" fallback yet.
 
 ## License
 

@@ -2,6 +2,7 @@ package com.naurway.skinamarink.ai;
 
 import com.google.gson.JsonObject;
 import com.naurway.skinamarink.SkinamarinkMod;
+import com.naurway.skinamarink.content.GeometryReconfigurer;
 import com.naurway.skinamarink.content.SkinamarinkFx;
 import com.naurway.skinamarink.entity.SkinamarinkEntity;
 import net.minecraft.server.MinecraftServer;
@@ -33,8 +34,10 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * whisper_hint/spawn_effect/loop_ambient play real content (see
  * com.naurway.skinamarink.content) aimed only at the targeted player.
- * manifest and reconfigure_geometry are still stubs (log only) - they need
- * their own content/mechanics, deliberately out of scope here.
+ * reconfigure_geometry (GeometryReconfigurer) actually mutates blocks now,
+ * strictly within the target room's own RoomTracker zone - a no-op if
+ * target_room isn't a real defined room. manifest is still a stub (log
+ * only) - it needs its own mechanic, deliberately out of scope here.
  *
  * One real gap this does NOT solve, called out rather than faked:
  * lightSourceActive is a placeholder held-item check (torch/lantern in
@@ -183,7 +186,10 @@ public final class SkinamarinkDirector {
             case SkinamarinkAgent.AgentAction.ReconfigureGeometry a -> {
                 dread.markEvent(playerId);
                 recordTool(playerId, "reconfigure_geometry", a.changeType() + " in " + a.targetRoom());
-                SkinamarinkMod.LOGGER.info("[Skinamarink] reconfigure_geometry: {} in {} (not implemented yet)", a.changeType(), a.targetRoom());
+                if (!GeometryReconfigurer.apply(player, a.changeType(), a.targetRoom())) {
+                    SkinamarinkMod.LOGGER.warn("[Skinamarink] reconfigure_geometry: could not apply {} in room '{}'",
+                            a.changeType(), a.targetRoom());
+                }
             }
             case SkinamarinkAgent.AgentAction.LoopAmbient a -> {
                 dread.markEvent(playerId);

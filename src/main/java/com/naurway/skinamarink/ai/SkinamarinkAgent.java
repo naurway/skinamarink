@@ -284,7 +284,7 @@ public final class SkinamarinkAgent {
         tools.add(tool("reconfigure_geometry", "Subtly alter a room/hallway's layout - a door, window, or passage that no longer matches what the player remembers. Only valid at fear_score >= 50 - calls below that are silently downgraded.",
                 props(
                     prop("change_type", "string", "one of: remove_door, shift_hallway_length, relocate_window, remove_window"),
-                    prop("target_room", "string", "room/area id, prefer one from the player's own return-route memory when available")
+                    prop("target_room", "string", "must be a room id the map defines (see current_state.lastRoom and player_memory's return-route mentions) - anything else silently does nothing")
                 )));
 
         tools.add(tool("loop_ambient", "Play a quiet looping audio texture (old static, a repeating simple sound) - not an event, a background wrongness.",
