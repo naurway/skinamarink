@@ -3,6 +3,7 @@ import com.google.gson.*;
 import com.naurway.skinamarink.content.AmbientTable;
 import com.naurway.skinamarink.content.EffectTable;
 import com.naurway.skinamarink.content.HintTable;
+import com.naurway.skinamarink.content.ManifestationTable;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -279,7 +280,7 @@ public final class SkinamarinkAgent {
                 )));
 
         tools.add(tool("manifest", "Trigger a full manifestation event. Only valid at fear_score >= 75 - calls below that are silently downgraded. Last resort - prefer reconfigure_geometry.",
-                props(prop("manifestation_type", "string", "id from the mod's manifestation table"))));
+                props(prop("manifestation_type", "string", "one of: " + idList(ManifestationTable.values())))));
 
         tools.add(tool("reconfigure_geometry", "Subtly alter a room/hallway's layout - a door, window, or passage that no longer matches what the player remembers. Only valid at fear_score >= 50 - calls below that are silently downgraded.",
                 props(

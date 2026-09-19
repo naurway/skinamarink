@@ -91,6 +91,15 @@ invisible/silent entity, used only as a position/line-of-sight anchor.
   non-air block the designer didn't define as part of it. `target_room`
   must be a real room id (`/sk room define` it first) or the call silently
   does nothing.
+- **`ManifestationTable`** — `manifest`'s content, the entity's rarest,
+  closest beat. Per its own design, the entity is never rendered even here:
+  `SkinamarinkFx.manifest` briefly relocates the real (still-invisible)
+  `SkinamarinkEntity` right next to the player, pairs it with a plain sound
+  and a short screen effect that reads as *sensed, not seen* (vanilla's
+  `Darkness`/`Nausea` effects — `Darkness` is literally the Warden's own
+  "there's danger near but you can't see it" mechanic), then pulls the
+  entity back away in the same call. No jump-scare stinger — restrained,
+  same as everything else the entity does.
 
 ## Setup
 
@@ -134,27 +143,31 @@ deterministic fallback behavior alone.
   `reconfigure_geometry` change (`remove_door`, `remove_window`,
   `relocate_window`, `shift_hallway_length`) to a defined room, for testing
   `GeometryReconfigurer` without waiting on the agent.
+- `/sk manifest <type>` — manually triggers a `manifest` (`close_behind`,
+  `right_in_front`, `cold_presence`), for testing `ManifestationTable`
+  without waiting on the agent.
 
 ## Status
 
-Early WIP. The agent, dread score, memory, demand-tracking, room-tracking,
-entity, decision-cycle driver, and hint/effect/ambient/geometry content are
-all wired up and testable via the debug commands — `whisper_hint`,
-`spawn_effect`, `loop_ambient`, and now `reconfigure_geometry` all actually
-do something in-game instead of only logging. What's still open:
+Early WIP, but every tool call in the agent's menu now does something real
+in-game: dread score, memory, demand-tracking, room-tracking, entity,
+decision-cycle driver, and all seven "visible" tool calls (`whisper_hint`,
+`spawn_effect`, `loop_ambient`, `reconfigure_geometry`, `manifest`,
+`record_observation`, `issue_demand`) are wired up and testable via the
+debug commands. What's still open:
 
-- **`manifest` is still a stub** (log only) — it needs its own content/
-  mechanic (a rare, unsettling appearance for the entity).
 - **`lightSourceActive` is a placeholder** — a held-torch/lantern check, not
   a real flashlight/light-source mechanic.
 - **Vanilla placeholder audio.** The content tables use stock vanilla
-  `SoundEvents`/`ParticleTypes` since the mod has no custom sound assets
-  yet — the ids are stable, so swapping in real recorded audio later won't
-  touch the agent or `SkinamarinkDirector`.
+  `SoundEvents`/`ParticleTypes`/status effects since the mod has no custom
+  sound assets yet — the ids are stable, so swapping in real recorded audio
+  later won't touch the agent or `SkinamarinkDirector`.
 - **`shift_hallway_length` only extends "outward"** into confirmed-empty
   space adjacent to the room's far end along its longer axis — if that
   space isn't free, the call is a safe no-op rather than clipping into
   whatever's there. There's no "shrink" fallback yet.
+- **No decision has actually been played and heard yet** — nothing in this
+  repo has been run. Next step is a real local playtest, not more features.
 
 ## License
 

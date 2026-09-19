@@ -32,12 +32,13 @@ import java.util.concurrent.ConcurrentHashMap;
  * recording an "entered_room:<id>" action too. A player standing outside any
  * defined zone reads "unknown", same as before any zones exist at all.
  *
- * whisper_hint/spawn_effect/loop_ambient play real content (see
- * com.naurway.skinamarink.content) aimed only at the targeted player.
- * reconfigure_geometry (GeometryReconfigurer) actually mutates blocks now,
- * strictly within the target room's own RoomTracker zone - a no-op if
- * target_room isn't a real defined room. manifest is still a stub (log
- * only) - it needs its own mechanic, deliberately out of scope here.
+ * whisper_hint/spawn_effect/loop_ambient/manifest all play real content now
+ * (see com.naurway.skinamarink.content), aimed only at the targeted player -
+ * manifest briefly relocates the still-invisible entity close to the player,
+ * pairs it with a sound and a sensed-not-seen screen effect, then pulls it
+ * back away. reconfigure_geometry (GeometryReconfigurer) actually mutates
+ * blocks now, strictly within the target room's own RoomTracker zone - a
+ * no-op if target_room isn't a real defined room.
  *
  * One real gap this does NOT solve, called out rather than faked:
  * lightSourceActive is a placeholder held-item check (torch/lantern in
@@ -181,7 +182,9 @@ public final class SkinamarinkDirector {
             case SkinamarinkAgent.AgentAction.Manifest a -> {
                 dread.markEvent(playerId);
                 recordTool(playerId, "manifest", a.manifestationType());
-                SkinamarinkMod.LOGGER.info("[Skinamarink] manifest: {} (no manifestation table wired up yet)", a.manifestationType());
+                if (!SkinamarinkFx.manifest(player, a.manifestationType())) {
+                    SkinamarinkMod.LOGGER.warn("[Skinamarink] manifest: unknown manifestation_type '{}'", a.manifestationType());
+                }
             }
             case SkinamarinkAgent.AgentAction.ReconfigureGeometry a -> {
                 dread.markEvent(playerId);

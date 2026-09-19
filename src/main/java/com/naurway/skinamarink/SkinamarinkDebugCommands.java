@@ -4,6 +4,7 @@ import com.naurway.skinamarink.ai.DemandTracker;
 import com.naurway.skinamarink.ai.DreadTracker;
 import com.naurway.skinamarink.ai.SkinamarinkAgent;
 import com.naurway.skinamarink.content.GeometryReconfigurer;
+import com.naurway.skinamarink.content.SkinamarinkFx;
 import com.naurway.skinamarink.entity.SkinamarinkEntity;
 import com.google.gson.JsonObject;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
@@ -67,6 +68,9 @@ public final class SkinamarinkDebugCommands {
                                                 .then(Commands.argument("name", StringArgumentType.word())
                                                         .then(Commands.argument("change_type", StringArgumentType.word())
                                                                 .executes(SkinamarinkDebugCommands::runRoomReconfigure)))))
+                                .then(Commands.literal("manifest")
+                                        .then(Commands.argument("type", StringArgumentType.word())
+                                                .executes(SkinamarinkDebugCommands::runManifest)))
                 )
         );
     }
@@ -394,6 +398,27 @@ public final class SkinamarinkDebugCommands {
                 "[Skinamarink] Could not apply " + changeType + " in room '" + name
                         + "' - check the room exists, the change_type is valid (remove_door, remove_window, "
                         + "relocate_window, shift_hallway_length), and an eligible block/space was found."));
+        return 0;
+    }
+
+    private static int runManifest(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+
+        var player = source.getPlayer();
+        if (player == null) {
+            source.sendFailure(Component.literal(
+                    "[Skinamarink] This command must be run by a player, not the console."));
+            return 0;
+        }
+
+        String type = StringArgumentType.getString(ctx, "type");
+        boolean applied = SkinamarinkFx.manifest(player, type);
+        if (applied) {
+            source.sendSuccess(() -> Component.literal("[Skinamarink] Manifested: " + type), false);
+            return 1;
+        }
+        source.sendFailure(Component.literal(
+                "[Skinamarink] Unknown manifestation_type '" + type + "'"));
         return 0;
     }
 

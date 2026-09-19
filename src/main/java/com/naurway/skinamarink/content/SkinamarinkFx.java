@@ -1,19 +1,23 @@
 package com.naurway.skinamarink.content;
 
 import com.naurway.skinamarink.SkinamarinkMod;
+import com.naurway.skinamarink.entity.SkinamarinkEntity;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.phys.Vec3;
 
+import java.util.Comparator;
 import java.util.Optional;
 
 /**
- * Plays the content-table entries for whisper_hint/spawn_effect/loop_ambient.
- * Everything here is aimed at ONE specific player - playNotifySound and the
- * per-player sendParticles overload both send only to that player's client,
- * matching SkinamarinkAgent's "aimed at THIS player specifically" design
- * rather than broadcasting to everyone nearby.
+ * Plays the content-table entries for whisper_hint/spawn_effect/loop_ambient
+ * /manifest. Everything here is aimed at ONE specific player -
+ * playNotifySound, addEffect, and the per-player sendParticles overload all
+ * only affect that player's client, matching SkinamarinkAgent's "aimed at
+ * THIS player specifically" design rather than broadcasting to everyone
+ * nearby.
  *
  * NOTE: ServerLevel#sendParticles' per-player overload signature has moved
  * around across Minecraft versions (an extra "always render" boolean was
@@ -22,6 +26,8 @@ import java.util.Optional;
  * speed) 11-arg form used here is the long-standing one.
  */
 public final class SkinamarinkFx {
+
+    private static final double ENTITY_SEARCH_RADIUS = 128.0;
 
     private SkinamarinkFx() {}
 
@@ -59,6 +65,49 @@ public final class SkinamarinkFx {
     /** Called once a second by SkinamarinkDirector while a loop is active for this player. */
     public static void playLoopBeat(ServerPlayer player, AmbientTable loop) {
         player.playNotifySound(loop.sound, SoundSource.AMBIENT, loop.volume, loop.pitch);
+    }
+
+    /**
+     * Returns false if manifestationType doesn't match anything in
+     * ManifestationTable (caller should log/no-op). The entity is never
+     * rendered - this briefly relocates it close, plays a sound and a
+     * sensed-not-seen screen effect for the player, then pulls it back away
+     * in the same call. There's nothing for the player to "catch" even
+     * mid-effect, since it's permanently invisible regardless of distance.
+     */
+    public static boolean manifest(ServerPlayer player, String manifestationType) {
+        Optional<ManifestationTable> manifestation = ManifestationTable.byId(manifestationType);
+        if (manifestation.isEmpty()) return false;
+        ManifestationTable m = manifestation.get();
+
+        Optional<SkinamarinkEntity> entity = findNearestEntity(player);
+
+        entity.ifPresent(e -> {
+            Vec3 close = player.position().subtract(player.getViewVector(1.0f).scale(m.approachDistance));
+            e.setPos(close.x(), close.y(), close.z());
+        });
+
+        player.playNotifySound(m.sound, SoundSource.AMBIENT, m.volume, m.pitch);
+        player.addEffect(new MobEffectInstance(m.screenEffect, m.screenEffectDurationTicks, 0));
+
+        entity.ifPresent(e -> {
+            Vec3 far = player.position().add(randomFarOffset());
+            e.setPos(far.x(), far.y(), far.z());
+        });
+
+        return true;
+    }
+
+    private static Optional<SkinamarinkEntity> findNearestEntity(ServerPlayer player) {
+        ServerLevel level = (ServerLevel) player.level();
+        return level.getEntitiesOfClass(SkinamarinkEntity.class, player.getBoundingBox().inflate(ENTITY_SEARCH_RADIUS))
+                .stream().min(Comparator.comparingDouble(e -> e.distanceToSqr(player)));
+    }
+
+    private static Vec3 randomFarOffset() {
+        double angle = Math.random() * Math.PI * 2;
+        double distance = 60 + Math.random() * 20;
+        return new Vec3(Math.cos(angle) * distance, 0, Math.sin(angle) * distance);
     }
 
     private static Vec3 resolveLocation(ServerPlayer player, String location) {
