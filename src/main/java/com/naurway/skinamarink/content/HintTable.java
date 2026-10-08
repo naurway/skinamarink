@@ -1,5 +1,7 @@
 package com.naurway.skinamarink.content;
 
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 
@@ -19,14 +21,18 @@ public enum HintTable {
     FLOORBOARD_CREAK(SoundEvents.WOODEN_DOOR_CLOSE, 0.5f, 0.7f),
     LIGHTS_FLICKER(SoundEvents.CANDLE_EXTINGUISH, 0.6f, 1.0f),
     CHILD_HUMMING(SoundEvents.NOTE_BLOCK_PLING, 0.4f, 0.6f),
-    PAGE_TURN(SoundEvents.ITEM_BOOK_PAGE_TURN, 0.5f, 1.0f),
+    PAGE_TURN(SoundEvents.BOOK_PAGE_TURN, 0.5f, 1.0f),
     DISTANT_KNOCK(SoundEvents.WOODEN_DOOR_OPEN, 0.4f, 0.5f);
 
-    public final SoundEvent sound;
+    public final Holder<SoundEvent> sound; // see AmbientTable for why this is a Holder
     public final float volume;
     public final float pitch;
 
     HintTable(SoundEvent sound, float volume, float pitch) {
+        this(BuiltInRegistries.SOUND_EVENT.wrapAsHolder(sound), volume, pitch);
+    }
+
+    HintTable(Holder<SoundEvent> sound, float volume, float pitch) {
         this.sound = sound;
         this.volume = volume;
         this.pitch = pitch;

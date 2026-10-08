@@ -252,7 +252,7 @@ public final class SkinamarinkDirector {
     }
 
     private String timeOfDay(ServerLevel level) {
-        long time = level.getDayTime() % 24000;
+        long time = level.getOverworldClockTime() % 24000;
         if (time < 12000) return "day";
         if (time < 13500) return "dusk";
         if (time < 22500) return "night";

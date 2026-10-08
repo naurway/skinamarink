@@ -1,5 +1,7 @@
 package com.naurway.skinamarink.content;
 
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.effect.MobEffect;
@@ -22,15 +24,21 @@ public enum ManifestationTable {
     RIGHT_IN_FRONT(SoundEvents.GLASS_BREAK, 0.4f, 0.6f, MobEffects.DARKNESS, 40, 0.75),
     COLD_PRESENCE(SoundEvents.AMBIENT_CAVE, 0.6f, 0.5f, MobEffects.NAUSEA, 60, 1.5);
 
-    public final SoundEvent sound;
+    public final Holder<SoundEvent> sound; // see AmbientTable for why this is a Holder
     public final float volume;
     public final float pitch;
-    public final MobEffect screenEffect;
+    public final Holder<MobEffect> screenEffect;
     public final int screenEffectDurationTicks;
     public final double approachDistance; // blocks from the player when the entity briefly relocates close
 
     ManifestationTable(SoundEvent sound, float volume, float pitch,
-                        MobEffect screenEffect, int screenEffectDurationTicks, double approachDistance) {
+                        Holder<MobEffect> screenEffect, int screenEffectDurationTicks, double approachDistance) {
+        this(BuiltInRegistries.SOUND_EVENT.wrapAsHolder(sound), volume, pitch,
+                screenEffect, screenEffectDurationTicks, approachDistance);
+    }
+
+    ManifestationTable(Holder<SoundEvent> sound, float volume, float pitch,
+                        Holder<MobEffect> screenEffect, int screenEffectDurationTicks, double approachDistance) {
         this.sound = sound;
         this.volume = volume;
         this.pitch = pitch;

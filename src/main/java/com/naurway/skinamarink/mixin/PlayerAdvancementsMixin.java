@@ -2,7 +2,7 @@ package com.naurway.skinamarink.mixin;
 
 import com.naurway.skinamarink.SkinamarinkMod;
 import net.minecraft.advancements.AdvancementHolder;
-import net.minecraft.advancements.PlayerAdvancements;
+import net.minecraft.server.PlayerAdvancements;
 import net.minecraft.server.level.ServerPlayer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;

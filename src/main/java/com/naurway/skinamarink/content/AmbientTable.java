@@ -1,5 +1,7 @@
 package com.naurway.skinamarink.content;
 
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 
@@ -16,12 +18,18 @@ public enum AmbientTable {
     CAVE_HUM(SoundEvents.AMBIENT_CAVE, 0.2f, 1.0f, 30),
     SOFT_KNOCKING(SoundEvents.WOODEN_DOOR_CLOSE, 0.2f, 0.6f, 20);
 
-    public final SoundEvent sound;
+    // Holder, not SoundEvent: in MC 26.2 some SoundEvents constants are plain
+    // SoundEvents and some are registry Holders, and the sound packet wants a Holder.
+    public final Holder<SoundEvent> sound;
     public final float volume;
     public final float pitch;
     public final int durationSeconds;
 
     AmbientTable(SoundEvent sound, float volume, float pitch, int durationSeconds) {
+        this(BuiltInRegistries.SOUND_EVENT.wrapAsHolder(sound), volume, pitch, durationSeconds);
+    }
+
+    AmbientTable(Holder<SoundEvent> sound, float volume, float pitch, int durationSeconds) {
         this.sound = sound;
         this.volume = volume;
         this.pitch = pitch;

@@ -14,13 +14,13 @@ import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
-import net.fabricmc.fabric.api.object.builder.v1.entity.FabricEntityTypeBuilder;
 import net.fabricmc.loader.api.FabricLoader;
 
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
-import net.minecraft.world.entity.EntityDimensions;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
 
@@ -41,9 +41,9 @@ public class SkinamarinkMod implements ModInitializer {
 	public static final EntityType<SkinamarinkEntity> ENTITY_TYPE = Registry.register(
 			BuiltInRegistries.ENTITY_TYPE,
 			id("entity"),
-			FabricEntityTypeBuilder.create(MobCategory.MISC, SkinamarinkEntity::new)
-					.dimensions(EntityDimensions.scalable(0.6f, 1.95f))
-					.build()
+			EntityType.Builder.of(SkinamarinkEntity::new, MobCategory.MISC)
+					.sized(0.6f, 1.95f)
+					.build(ResourceKey.create(Registries.ENTITY_TYPE, id("entity")))
 	);
 
 	// Public static for now so other classes can reach these easily while

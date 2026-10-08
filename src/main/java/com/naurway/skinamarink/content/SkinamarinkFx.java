@@ -2,8 +2,11 @@ package com.naurway.skinamarink.content;
 
 import com.naurway.skinamarink.SkinamarinkMod;
 import com.naurway.skinamarink.entity.SkinamarinkEntity;
+import net.minecraft.core.Holder;
+import net.minecraft.network.protocol.game.ClientboundSoundPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.phys.Vec3;
@@ -14,16 +17,14 @@ import java.util.Optional;
 /**
  * Plays the content-table entries for whisper_hint/spawn_effect/loop_ambient
  * /manifest. Everything here is aimed at ONE specific player -
- * playNotifySound, addEffect, and the per-player sendParticles overload all
- * only affect that player's client, matching SkinamarinkAgent's "aimed at
- * THIS player specifically" design rather than broadcasting to everyone
- * nearby.
+ * playToPlayer (a sound packet sent only to this player's connection),
+ * addEffect, and the per-player sendParticles overload all only affect that
+ * player's client, matching SkinamarinkAgent's "aimed at THIS player
+ * specifically" design rather than broadcasting to everyone nearby.
  *
- * NOTE: ServerLevel#sendParticles' per-player overload signature has moved
- * around across Minecraft versions (an extra "always render" boolean was
- * added in some). If this doesn't compile against MC 26.2, that's the line
- * to fix first - the (player, particle, force, x, y, z, count, dx, dy, dz,
- * speed) 11-arg form used here is the long-standing one.
+ * MC 26.2 notes: ServerPlayer#playNotifySound no longer exists, so sounds go
+ * out as a ClientboundSoundPacket; per-player sendParticles takes two booleans
+ * (overrideLimiter, alwaysShow) before the coordinates.
  */
 public final class SkinamarinkFx {
 
@@ -36,7 +37,7 @@ public final class SkinamarinkFx {
         Optional<HintTable> hint = HintTable.byId(hintId);
         if (hint.isEmpty()) return false;
         HintTable h = hint.get();
-        player.playNotifySound(h.sound, SoundSource.AMBIENT, h.volume, h.pitch);
+        playToPlayer(player, h.sound, h.volume, h.pitch);
         return true;
     }
 
@@ -48,7 +49,7 @@ public final class SkinamarinkFx {
 
         Vec3 pos = resolveLocation(player, location);
         ServerLevel level = (ServerLevel) player.level();
-        level.sendParticles(player, e.particle, true,
+        level.sendParticles(player, e.particle, true, false,
                 pos.x(), pos.y(), pos.z(), e.count, e.spread, e.spread, e.spread, 0.01);
         return true;
     }
@@ -64,7 +65,7 @@ public final class SkinamarinkFx {
 
     /** Called once a second by SkinamarinkDirector while a loop is active for this player. */
     public static void playLoopBeat(ServerPlayer player, AmbientTable loop) {
-        player.playNotifySound(loop.sound, SoundSource.AMBIENT, loop.volume, loop.pitch);
+        playToPlayer(player, loop.sound, loop.volume, loop.pitch);
     }
 
     /**
@@ -87,7 +88,7 @@ public final class SkinamarinkFx {
             e.setPos(close.x(), close.y(), close.z());
         });
 
-        player.playNotifySound(m.sound, SoundSource.AMBIENT, m.volume, m.pitch);
+        playToPlayer(player, m.sound, m.volume, m.pitch);
         player.addEffect(new MobEffectInstance(m.screenEffect, m.screenEffectDurationTicks, 0));
 
         entity.ifPresent(e -> {
@@ -96,6 +97,12 @@ public final class SkinamarinkFx {
         });
 
         return true;
+    }
+
+    /** Plays a sound at the player's position that only this player hears. */
+    private static void playToPlayer(ServerPlayer player, Holder<SoundEvent> sound, float volume, float pitch) {
+        player.connection.send(new ClientboundSoundPacket(sound, SoundSource.AMBIENT,
+                player.getX(), player.getY(), player.getZ(), volume, pitch, player.getRandom().nextLong()));
     }
 
     private static Optional<SkinamarinkEntity> findNearestEntity(ServerPlayer player) {

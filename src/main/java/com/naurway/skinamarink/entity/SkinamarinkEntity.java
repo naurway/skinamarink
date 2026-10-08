@@ -1,5 +1,6 @@
 package com.naurway.skinamarink.entity;
 
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntityType;
@@ -25,7 +26,6 @@ public class SkinamarinkEntity extends PathfinderMob {
         super(type, level);
         this.setInvisible(true);
         this.setSilent(true);
-        this.noCulling = true;
         this.setCustomNameVisible(false);
         this.setPersistenceRequired();
     }
@@ -59,7 +59,7 @@ public class SkinamarinkEntity extends PathfinderMob {
     }
 
     @Override
-    public boolean hurt(DamageSource source, float amount) {
+    public boolean hurtServer(ServerLevel level, DamageSource source, float amount) {
         return false;
     }
 }
