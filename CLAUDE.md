@@ -45,6 +45,20 @@ The owner is a beginner modder who playtests locally. Explain changes plainly. W
 - You can't launch Minecraft here. Try `./gradlew build` to catch compile errors. If dependency downloads are blocked in this environment, say so once and stop retrying.
 - Every new behavior gets a `/sk` command so the owner can trigger and inspect it in-game without waiting on the agent.
 
+## MC 26.2 API notes (verified against the real jars; you can't compile here, so trust these)
+
+Earlier sessions guessed older Minecraft method names and the build failed with 23 errors. Use these:
+
+- No `ServerPlayer#playNotifySound`. Player-only sounds go through `SkinamarinkFx.playToPlayer`, which sends a `ClientboundSoundPacket`. Reuse it.
+- Some `SoundEvents` constants are `Holder<SoundEvent>`, some are plain `SoundEvent`. Wrap plain ones with `BuiltInRegistries.SOUND_EVENT.wrapAsHolder(...)`. `MobEffects` constants are `Holder<MobEffect>`.
+- Per-player `sendParticles`: `(player, particle, overrideLimiter, alwaysShow, x, y, z, count, dx, dy, dz, speed)`.
+- Time of day: `level.getOverworldClockTime()`, not `getDayTime()`.
+- Entity damage hook: `hurtServer(ServerLevel, DamageSource, float)`. `hurt()` is final.
+- `PlayerAdvancements` is in `net.minecraft.server`, not `net.minecraft.advancements`.
+- Entity types: `EntityType.Builder.of(...).sized(...).build(ResourceKey.create(Registries.ENTITY_TYPE, id))`.
+- Every entity type needs a client renderer or the game crashes on spawn. See `SkinamarinkModClient` (`NoopRenderer`).
+- If you're unsure an API exists in 26.2, say so in your summary so the owner knows where to look if the build fails.
+
 ## Owner's Windows gotchas (for advice you give, not this sandbox)
 
 - After changing env vars: `.\gradlew --stop`, then fully restart IntelliJ.
@@ -54,7 +68,6 @@ The owner is a beginner modder who playtests locally. Explain changes plainly. W
 
 ## Still open (rough order)
 
-1. Owner playtests the current branch end to end and merges it to `main`.
-2. Flickering lights (vanilla light-block state toggling while unobserved).
-3. Advancement-triggered mutations: a JSON mapping from vanilla advancement ids to entity/director changes, fed by `PlayerAdvancementsMixin`. Later, a custom hidden advancement tab.
-4. Offline pre-generated content pools (hint lines, demand phrasings) to reduce live API use.
+1. Flickering lights (vanilla light-block state toggling while unobserved).
+2. Advancement-triggered mutations: a JSON mapping from vanilla advancement ids to entity/director changes, fed by `PlayerAdvancementsMixin`. Later, a custom hidden advancement tab.
+3. Offline pre-generated content pools (hint lines, demand phrasings) to reduce live API use.
