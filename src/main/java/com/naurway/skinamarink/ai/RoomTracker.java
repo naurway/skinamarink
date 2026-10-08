@@ -34,7 +34,7 @@ public final class RoomTracker {
     private final Map<String, RoomZone> zones = new ConcurrentHashMap<>();
 
     public record RoomZone(String id, int minX, int minY, int minZ, int maxX, int maxY, int maxZ) {
-        boolean contains(BlockPos pos) {
+        public boolean contains(BlockPos pos) {
             return pos.getX() >= minX && pos.getX() <= maxX
                     && pos.getY() >= minY && pos.getY() <= maxY
                     && pos.getZ() >= minZ && pos.getZ() <= maxZ;

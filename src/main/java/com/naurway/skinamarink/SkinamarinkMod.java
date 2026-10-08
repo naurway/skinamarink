@@ -7,6 +7,7 @@ import com.naurway.skinamarink.ai.PlayerMemory;
 import com.naurway.skinamarink.ai.RoomTracker;
 import com.naurway.skinamarink.ai.SkinamarinkAgent;
 import com.naurway.skinamarink.ai.SkinamarinkDirector;
+import com.naurway.skinamarink.content.AmbientLoopTracker;
 import com.naurway.skinamarink.entity.SkinamarinkEntity;
 
 import net.fabricmc.api.ModInitializer;
@@ -54,6 +55,7 @@ public class SkinamarinkMod implements ModInitializer {
 	public static PlayerActivityTracker activityTracker;
 	public static DreadTracker dreadTracker;
 	public static RoomTracker roomTracker;
+	public static AmbientLoopTracker ambientLoopTracker;
 	public static SkinamarinkDirector director;
 
 	@Override
@@ -67,6 +69,7 @@ public class SkinamarinkMod implements ModInitializer {
 			Path configDir = FabricLoader.getInstance().getConfigDir();
 			activityTracker = new PlayerActivityTracker();
 			dreadTracker = new DreadTracker();
+			ambientLoopTracker = new AmbientLoopTracker();
 			director = new SkinamarinkDirector();
 			String apiKey = System.getenv("SKINAMARINK_ANTHROPIC_KEY");
 			if (apiKey == null || apiKey.isBlank()) {
